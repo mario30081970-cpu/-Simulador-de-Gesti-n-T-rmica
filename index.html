@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0e17">
+<title>Simulador de Gestión Térmica · Hardware I</title>
+<style>
+:root{
+  --bg:#0a0e17; --bg2:#0f1523; --card:#161e30; --card2:#1d2842;
+  --line:#2a3654; --copper:#ff9d5c; --copper-d:#e07a3a;
+  --cyan:#38bdf8; --cyan-d:#0ea5e9; --text:#e8eef7; --muted:#8b9bb4;
+  --success:#22c55e; --warn:#f59e0b; --danger:#ef4444; --purple:#a78bfa;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;overflow-x:hidden;width:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  background:radial-gradient(circle at 50% 0%, #16223d 0%, #0a0e17 55%) fixed;
+  color:var(--text); min-height:100vh; font-size:16px; line-height:1.5;
+  padding:0 0 40px; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:640px;margin:0 auto;padding:14px 14px 30px}
+header.top{
+  display:flex;align-items:center;gap:10px;padding:14px 4px 6px;
+  border-bottom:1px solid var(--line);margin-bottom:14px;
+}
+header.top .logo{
+  width:38px;height:38px;border-radius:10px;flex:0 0 38px;
+  background:linear-gradient(135deg,var(--copper),var(--copper-d));
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+  box-shadow:0 0 18px rgba(255,157,92,.35);
+}
+header.top h1{font-size:15px;margin:0;line-height:1.2;font-weight:700;letter-spacing:.2px}
+header.top p{margin:2px 0 0;font-size:11.5px;color:var(--muted)}
+
+/* Progress */
+.progress{display:flex;gap:6px;margin:0 0 16px}
+.progress .step{
+  flex:1;height:5px;border-radius:4px;background:var(--card2);overflow:hidden;position:relative;
+}
+.progress .step.active{background:linear-gradient(90deg,var(--copper),var(--cyan))}
+.progress .step.done{background:linear-gradient(90deg,var(--copper-d),var(--cyan-d))}
+
+/* Screens */
+.screen{display:none;animation:fadeIn .35s ease}
+.screen.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* Cards */
+.card{
+  background:linear-gradient(180deg,var(--card) 0%,var(--card2) 100%);
+  border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:14px;
+  box-shadow:0 6px 22px rgba(0,0,0,.35);
+}
+.card h2{
+  font-size:16px;margin:0 0 4px;font-weight:700;letter-spacing:.2px;
+  display:flex;align-items:center;gap:8px;
+}
+.card h2 .num{
+  background:linear-gradient(135deg,var(--copper),var(--cyan));
+  color:#0a0e17;font-weight:800;font-size:12px;width:22px;height:22px;
+  border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+}
+.card .hint{font-size:12.5px;color:var(--muted);margin:0 0 14px}
+.card p{margin:0 0 10px;font-size:14px}
+
+/* Inputs */
+label.field{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 6px;font-weight:600;letter-spacing:.3px;text-transform:uppercase}
+input[type=text]{
+  width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);
+  background:#0c1322;color:var(--text);font-size:16px;outline:none;
+  transition:border-color .2s, box-shadow .2s;
+}
+input[type=text]:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(56,189,248,.15)}
+
+/* Option cards */
+.options{display:flex;flex-direction:column;gap:10px}
+.opt{
+  display:flex;gap:12px;align-items:flex-start;padding:13px 14px;border-radius:13px;
+  border:1.5px solid var(--line);background:#0e1626;cursor:pointer;
+  transition:border-color .18s, background .18s, transform .1s;
+  text-align:left;color:var(--text);font-size:14px;width:100%;font-family:inherit;
+}
+.opt:active{transform:scale(.985)}
+.opt.sel{border-color:var(--copper);background:linear-gradient(180deg,#1a2236,#211b26);box-shadow:0 0 0 3px rgba(255,157,92,.12)}
+.opt.sel.cyan{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(56,189,248,.12);background:linear-gradient(180deg,#1a2236,#152233)}
+.opt .ico{
+  flex:0 0 40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:20px;background:#0a1220;border:1px solid var(--line);
+}
+.opt.sel .ico{background:linear-gradient(135deg,rgba(255,157,92,.25),rgba(56,189,248,.25));border-color:transparent}
+.opt .info{flex:1;min-width:0}
+.opt .title{font-weight:700;font-size:14.5px;margin-bottom:2px}
+.opt .desc{font-size:12.5px;color:var(--muted);line-height:1.35}
+.opt .tag{
+  display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;
+  margin-top:6px;letter-spacing:.3px;
+}
+.tag.good{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.35)}
+.tag.mid{background:rgba(56,189,248,.15);color:#7dd3fc;border:1px solid rgba(56,189,248,.35)}
+.tag.warn{background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.35)}
+.tag.bad{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.35)}
+
+/* Feedback */
+.feedback{
+  margin-top:12px;padding:11px 13px;border-radius:11px;font-size:13px;
+  background:rgba(56,189,248,.08);border-left:3px solid var(--cyan);
+  display:none;animation:fadeIn .3s;
+}
+.feedback.show{display:block}
+.feedback.warn{background:rgba(245,158,11,.08);border-left-color:var(--warn)}
+.feedback.bad{background:rgba(239,68,68,.08);border-left-color:var(--danger)}
+.feedback.good{background:rgba(34,197,94,.08);border-left-color:var(--success)}
+
+/* Buttons */
+.btn{
+  display:block;width:100%;padding:15px 18px;border-radius:13px;border:none;
+  font-size:15.5px;font-weight:700;font-family:inherit;cursor:pointer;
+  transition:transform .12s, box-shadow .2s, opacity .2s;letter-spacing:.3px;
+}
+.btn:active{transform:scale(.98)}
+.btn-primary{
+  background:linear-gradient(135deg,var(--copper) 0%,var(--copper-d) 100%);
+  color:#1a0f06;box-shadow:0 8px 22px rgba(255,157,92,.28);
+}
+.btn-secondary{
+  background:linear-gradient(135deg,var(--cyan) 0%,var(--cyan-d) 100%);
+  color:#062032;box-shadow:0 8px 22px rgba(56,189,248,.28);
+}
+.btn-ghost{
+  background:transparent;color:var(--muted);border:1.5px solid var(--line);
+  margin-top:8px;font-size:14px;padding:12px;
+}
+.btn-danger{
+  background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;
+  box-shadow:0 8px 22px rgba(239,68,68,.28);
+}
+.btn-download{
+  background:linear-gradient(135deg,#22c55e,#15803d);color:#04210e;
+  box-shadow:0 8px 22px rgba(34,197,94,.32);
+  display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.btn-row{display:flex;gap:10px;margin-top:10px}
+.btn-row .btn{margin-top:0}
+
+/* PWM Slider */
+.pwm-display{
+  text-align:center;font-size:44px;font-weight:800;line-height:1;
+  background:linear-gradient(135deg,var(--cyan),var(--copper));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  margin:8px 0 4px;
+}
+.pwm-label{text-align:center;font-size:12px;color:var(--muted);margin-bottom:12px;letter-spacing:.4px;text-transform:uppercase}
+input[type=range]{
+  width:100%;-webkit-appearance:none;appearance:none;background:transparent;height:34px;
+  margin:0;padding:0;
+}
+input[type=range]::-webkit-slider-runnable-track{
+  height:8px;border-radius:6px;
+  background:linear-gradient(90deg,#38bdf8 0%,#22c55e 40%,#f59e0b 75%,#ef4444 100%);
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:28px;height:28px;border-radius:50%;
+  background:radial-gradient(circle at 30% 30%,#fff,#cbd5e1);
+  border:3px solid #0a0e17;box-shadow:0 0 0 2px var(--cyan), 0 4px 12px rgba(0,0,0,.5);
+  margin-top:-10px;cursor:pointer;
+}
+input[type=range]::-moz-range-track{
+  height:8px;border-radius:6px;
+  background:linear-gradient(90deg,#38bdf8 0%,#22c55e 40%,#f59e0b 75%,#ef4444 100%);
+}
+input[type=range]::-moz-range-thumb{
+  width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid #0a0e17;
+  box-shadow:0 0 0 2px var(--cyan);cursor:pointer;
+}
+.presets{display:flex;gap:8px;margin-top:10px}
+.preset{
+  flex:1;padding:11px 0;border-radius:11px;border:1.5px solid var(--line);
+  background:#0e1626;color:var(--text);font-size:13.5px;font-weight:700;
+  font-family:inherit;cursor:pointer;transition:all .18s;
+}
+.preset.sel{border-color:var(--cyan);background:linear-gradient(180deg,#152233,#0e1a2b);color:var(--cyan);box-shadow:0 0 0 3px rgba(56,189,248,.12)}
+
+/* Visualization */
+.vis{
+  position:relative;background:#0a1220;border:1px solid var(--line);border-radius:14px;
+  padding:16px;margin-top:14px;
+}
+.readout{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px}
+.readout .big{font-size:38px;font-weight:800;line-height:1;letter-spacing:-1px}
+.readout .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-top:4px}
+.readout .val{text-align:left}
+.readout .val:last-child{text-align:right}
+.meter{
+  height:14px;border-radius:8px;background:#0f1a2b;overflow:hidden;position:relative;
+  border:1px solid #1e2a42;margin-bottom:6px;
+}
+.meter .fill{
+  height:100%;width:0%;border-radius:8px;transition:width .12s linear, background .2s;
+  background:linear-gradient(90deg,#38bdf8,#22c55e);
+}
+.meter-labels{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-bottom:14px}
+.meter-labels .threshold{color:#f87171;font-weight:700}
+
+.status-box{
+  margin-top:12px;padding:14px;border-radius:12px;text-align:center;
+  font-size:14px;font-weight:700;letter-spacing:.3px;
+  background:#0f1a2b;border:1px solid var(--line);
+  transition:all .3s;
+}
+.status-box.ok{background:linear-gradient(135deg,rgba(34,197,94,.12),rgba(34,197,94,.04));border-color:rgba(34,197,94,.4);color:#86efac}
+.status-box.warn{background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.04));border-color:rgba(245,158,11,.4);color:#fcd34d}
+.status-box.bad{background:linear-gradient(135deg,rgba(239,68,68,.15),rgba(239,68,68,.05));border-color:rgba(239,68,68,.5);color:#fca5a5;animation:pulseAlert 1.2s infinite}
+@keyframes pulseAlert{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.35)}50%{box-shadow:0 0 0 10px rgba(239,68,68,0)}}
+
+/* Results */
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.result-item{
+  background:#0e1626;border:1px solid var(--line);border-radius:12px;padding:12px;
+}
+.result-item .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.result-item .v{font-size:20px;font-weight:800;line-height:1.1}
+.result-item .v.ok{color:#4ade80}
+.result-item .v.bad{color:#f87171}
+.result-item .v.mid{color:#fbbf24}
+
+.section-title{
+  font-size:14px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;
+  color:var(--copper);margin:18px 0 8px;display:flex;align-items:center;gap:8px;
+}
+.section-title::before{
+  content:'';width:3px;height:16px;background:linear-gradient(180deg,var(--copper),var(--cyan));border-radius:2px;
+}
+
+ul.summary{list-style:none;padding:0;margin:0;font-size:14px}
+ul.summary li{
+  padding:9px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:10px;
+}
+ul.summary li:last-child{border-bottom:none}
+ul.summary li span:first-child{color:var(--muted);font-size:13px}
+ul.summary li span:last-child{font-weight:700;text-align:right;font-size:13.5px}
+
+.footer-note{
+  text-align:center;font-size:11.5px;color:var(--muted);margin-top:20px;padding:0 10px;
+  line-height:1.5;
+}
+.footer-note b{color:var(--copper)}
+
+/* Loading dots */
+.dots{display:inline-flex;gap:4px;align-items:center;justify-content:center}
+.dots span{
+  width:6px;height:6px;border-radius:50%;background:var(--cyan);
+  animation:blink 1.2s infinite;
+}
+.dots span:nth-child(2){animation-delay:.2s}
+.dots span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,100%{opacity:.3}50%{opacity:1}}
+
+@media(max-width:360px){
+  .readout .big{font-size:32px}
+  .pwm-display{font-size:36px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="logo">❄️</div>
+    <div>
+      <h1>Simulador de Gestión Térmica</h1>
+      <p>Hardware I · Material N°19 · TDP &amp; Throttling</p>
+    </div>
+  </header>
+
+  <div class="progress">
+    <div class="step" id="p0"></div>
+    <div class="step" id="p1"></div>
+    <div class="step" id="p2"></div>
+    <div class="step" id="p3"></div>
+  </div>
+
+  <!-- ============ SCREEN 0: SETUP ============ -->
+  <section class="screen active" id="screen0">
+    <div class="card">
+      <h2><span class="num">1</span>Datos del Alumno</h2>
+      <p class="hint">Ingresá tus datos para generar el informe de la práctica.</p>
+
+      <label class="field" for="inName">Nombre y Apellido</label>
+      <input type="text" id="inName" placeholder="Ej: Juan Pérez" autocomplete="name">
+
+      <label class="field" for="inCourse">Curso</label>
+      <input type="text" id="inCourse" placeholder="Ej: 3° A" autocomplete="off">
+    </div>
+
+    <div class="card">
+      <h2><span class="num">2</span>Escenario de Carga de Trabajo</h2>
+      <p class="hint">Elegí el tipo de uso que le vas a dar al procesador durante la prueba.</p>
+      <div class="options" id="workloadOpts">
+        <button class="opt" data-workload="web">
+          <div class="ico">🌐</div>
+          <div class="info">
+            <div class="title">Navegación Web</div>
+            <div class="desc">Uso liviano: ofimática, navegador, música. Baja carga sostenida.</div>
+            <span class="tag good">TDP ≈ 35 W</span>
+          </div>
+        </button>
+        <button class="opt" data-workload="gaming">
+          <div class="ico">🎮</div>
+          <div class="info">
+            <div class="title">Gaming / Productividad</div>
+            <div class="desc">Carga alta sostenida: juegos, render, compilación, edición.</div>
+            <span class="tag bad">TDP ≈ 95 W</span>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="btnStart">Comenzar Simulación →</button>
+    <p class="footer-note">Basado en los conceptos de <b>TDP, Throttling, Interfaz Térmica, Heat Pipes y PWM</b> del Material N°19.</p>
+  </section>
+
+  <!-- ============ SCREEN 1: TIM ============ -->
+  <section class="screen" id="screen1">
+    <div class="card">
+      <h2><span class="num">1</span>Interfaz Térmica</h2>
+      <p class="hint">El IHS del procesador y la base del disipador tienen imperfecciones microscópicas. Elegí el compuesto que rellena esos espacios de aire.</p>
+
+      <div class="options" id="timOpts">
+        <button class="opt" data-tim="silicona">
+          <div class="ico">🧴</div>
+          <div class="info">
+            <div class="title">Pasta de Silicona</div>
+            <div class="desc">Baja conductividad térmica. Segura (no conductora eléctrica). Opción económica.</div>
+            <span class="tag warn">Conductividad baja</span>
+          </div>
+        </button>
+        <button class="opt" data-tim="ceramica">
+          <div class="ico">⚪</div>
+          <div class="info">
+            <div class="title">Pasta Cerámica</div>
+            <div class="desc">Conductividad media. No conductora eléctrica. El equilibrio ideal.</div>
+            <span class="tag good">Equilibrio ideal</span>
+          </div>
+        </button>
+        <button class="opt" data-tim="metalica">
+          <div class="ico">⚡</div>
+          <div class="info">
+            <div class="title">Pasta Metálica</div>
+            <div class="desc">Alta conductividad térmica. Conductora eléctrica: alto riesgo de cortocircuito.</div>
+            <span class="tag bad">Riesgo eléctrico</span>
+          </div>
+        </button>
+        <button class="opt" data-tim="pads">
+          <div class="ico">🟫</div>
+          <div class="info">
+            <div class="title">Pads Térmicos</div>
+            <div class="desc">Láminas sólidas. Uso específico en VRMs y memorias, no para el IHS principal.</div>
+            <span class="tag bad">No apto para IHS</span>
+          </div>
+        </button>
+      </div>
+
+      <div class="feedback" id="timFeedback"></div>
+    </div>
+
+    <button class="btn btn-secondary" id="btnToCooler" disabled>Siguiente: Sistema de Transporte →</button>
+    <button class="btn btn-ghost" data-back="0">← Volver</button>
+  </section>
+
+  <!-- ============ SCREEN 2: COOLER + PWM ============ -->
+  <section class="screen" id="screen2">
+    <div class="card">
+      <h2><span class="num">2</span>Sistema de Transporte</h2>
+      <p class="hint">Elegí la arquitectura que moverá el calor desde el bloque de cobre hacia el exterior.</p>
+
+      <div class="options" id="coolerOpts">
+        <button class="opt" data-cooler="aire">
+          <div class="ico">🗼</div>
+          <div class="info">
+            <div class="title">Disipador por Aire de Torre</div>
+            <div class="desc">Heat Pipes (cambio de fase) + torre de aletas de aluminio + ventilador.</div>
+            <span class="tag mid">Rendimiento medio</span>
+          </div>
+        </button>
+        <button class="opt" data-cooler="aio">
+          <div class="ico">💧</div>
+          <div class="info">
+            <div class="title">Refrigeración Líquida AIO</div>
+            <div class="desc">Bloque de agua + bomba + radiador remoto. Mayor capacidad calorífica.</div>
+            <span class="tag good">Alto rendimiento</span>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="num">3</span>Control PWM (Curva UEFI)</h2>
+      <p class="hint">Ajustá el Duty Cycle base de los ventiladores. A mayor %, más RPM y más caudal de aire, pero más ruido.</p>
+
+      <div class="pwm-display" id="pwmDisplay">50%</div>
+      <div class="pwm-label">Duty Cycle del Ventilador</div>
+      <input type="range" id="pwmSlider" min="20" max="100" step="5" value="50">
+      <div class="presets" id="pwmPresets">
+        <button class="preset" data-pwm="20">20%</button>
+        <button class="preset sel" data-pwm="50">50%</button>
+        <button class="preset" data-pwm="80">80%</button>
+        <button class="preset" data-pwm="100">100%</button>
+      </div>
+
+      <div class="feedback show" id="pwmFeedback">
+        <b>Zona de Rampa (50–75 °C):</b> aumento lineal equilibrado entre RPM y temperatura. Buen balance acústico/térmico.
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="btnToTest">Ir a la Prueba de Estrés →</button>
+    <button class="btn btn-ghost" data-back="1">← Volver</button>
+  </section>
+
+  <!-- ============ SCREEN 3: BENCHMARK ============ -->
+  <section class="screen" id="screen3">
+    <div class="card">
+      <h2><span class="num">4</span>Prueba de Estrés (Benchmark)</h2>
+      <p class="hint">Se aplicará carga máxima al procesador según el escenario elegido. Observá la temperatura y la frecuencia del reloj en tiempo real.</p>
+
+      <div class="vis">
+        <div class="readout">
+          <div class="val">
+            <div class="big" id="tempBig" style="color:#38bdf8">25°C</div>
+            <div class="lbl">Temperatura CPU</div>
+          </div>
+          <div class="val">
+            <div class="big" id="clockBig" style="color:#4ade80">100%</div>
+            <div class="lbl">Clock Speed</div>
+          </div>
+        </div>
+
+        <div class="meter"><div class="fill" id="tempBar" style="width:25%"></div></div>
+        <div class="meter-labels">
+          <span>0 °C</span>
+          <span class="threshold">▲ 80 °C crítico</span>
+          <span>100 °C</span>
+        </div>
+
+        <div class="meter"><div class="fill" id="clockBar" style="width:100%;background:linear-gradient(90deg,#22c55e,#4ade80)"></div></div>
+        <div class="meter-labels">
+          <span>0 %</span>
+          <span>Frecuencia de reloj</span>
+          <span>100 %</span>
+        </div>
+
+        <div class="status-box" id="statusBox">Sistema en reposo · 25 °C</div>
+      </div>
+
+      <button class="btn btn-danger" id="btnRun" style="margin-top:14px">▶ Ejecutar Prueba de Estrés</button>
+    </div>
+
+    <div class="card" id="resultsCard" style="display:none">
+      <h2>📊 Resultados Obtenidos</h2>
+
+      <div class="result-grid">
+        <div class="result-item">
+          <div class="k">Temp. Máxima</div>
+          <div class="v" id="resTemp">—</div>
+        </div>
+        <div class="result-item">
+          <div class="k">Clock Final</div>
+          <div class="v" id="resClock">—</div>
+        </div>
+        <div class="result-item">
+          <div class="k">Throttling</div>
+          <div class="v" id="resThrottle">—</div>
+        </div>
+        <div class="result-item">
+          <div class="k">Resistencia Térmica</div>
+          <div class="v" id="resR" style="font-size:16px">—</div>
+        </div>
+      </div>
+
+      <div class="section-title">Resumen de Decisiones</div>
+      <ul class="summary" id="summaryList"></ul>
+    </div>
+
+    <button class="btn btn-download" id="btnDownload" style="display:none;margin-top:8px">
+      📥 Descargar Informe de Práctica (.doc)
+    </button>
+    <button class="btn btn-ghost" data-back="2" id="btnBackFromResults">← Ajustar configuración</button>
+  </section>
+
+</div>
+
+<script>
+/* =========================================================
+   ESTADO GLOBAL
+========================================================= */
+const state = {
+  name: '',
+  course: '',
+  workload: null,   // 'web' | 'gaming'
+  tim: null,        // 'silicona' | 'ceramica' | 'metalica' | 'pads'
+  cooler: null,     // 'aire' | 'aio'
+  pwm: 50,
+  results: null
+};
+
+/* =========================================================
+   TABLAS DE DATOS TÉCNICOS (valores didácticos simplificados)
+========================================================= */
+const WORKLOADS = {
+  web:    { label: 'Navegación Web',            tdp: 35, icon: '🌐' },
+  gaming: { label: 'Gaming / Productividad',    tdp: 95, icon: '🎮' }
+};
+
+const TIMS = {
+  silicona: { label: 'Pasta de Silicona', r: 0.35,
+    fb: '<b>Pasta de Silicona:</b> rellena las imperfecciones, pero su baja conductividad deja una resistencia térmica microscópica alta. Apta para equipos de bajo consumo.',
+    cls: 'warn' },
+  ceramica: { label: 'Pasta Cerámica', r: 0.20,
+    fb: '<b>Pasta Cerámica:</b> excelente equilibrio: conduce bien el calor y no conduce electricidad. Ideal para la mayoría de los equipos.',
+    cls: 'good' },
+  metalica: { label: 'Pasta Metálica', r: 0.10,
+    fb: '<b>Pasta Metálica:</b> la mejor conductividad térmica, pero es conductora eléctrica. Si se derrama sobre la placa puede provocar un cortocircuito.',
+    cls: 'bad' },
+  pads:     { label: 'Pads Térmicos', r: 0.80,
+    fb: '<b>Pads Térmicos:</b> son láminas sólidas que no rellenan las microimperfecciones del IHS. Su uso correcto es en VRMs y memorias, no sobre el procesador principal.',
+    cls: 'bad' }
+};
+
+const COOLERS = {
+  aire: { label: 'Disipador por Aire de Torre (Heat Pipes)', r: 0.20 },
+  aio:  { label: 'Refrigeración Líquida All-in-One (AIO)',   r: 0.10 }
+};
+
+const AMBIENT = 25;        // °C temperatura ambiente
+const CRITICAL = 80;       // °C umbral de throttling
+
+/* =========================================================
+   NAVEGACIÓN ENTRE PANTALLAS
+========================================================= */
+function showScreen(n){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen' + n).classList.add('active');
+  for (let i = 0; i < 4; i++){
+    const el = document.getElementById('p' + i);
+    el.classList.remove('active','done');
+    if (i < n) el.classList.add('done');
+    if (i === n) el.classList.add('active');
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.querySelectorAll('[data-back]').forEach(b => {
+  b.addEventListener('click', () => showScreen(parseInt(b.dataset.back, 10)));
+});
+
+/* =========================================================
+   PANTALLA 0: SETUP
+========================================================= */
+document.querySelectorAll('#workloadOpts .opt').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('#workloadOpts .opt').forEach(o => o.classList.remove('sel'));
+    opt.classList.add('sel');
+    state.workload = opt.dataset.workload;
+  });
+});
+
+document.getElementById('btnStart').addEventListener('click', () => {
+  const name = document.getElementById('inName').value.trim();
+  const course = document.getElementById('inCourse').value.trim();
+  if (!name){ alert('Por favor, ingresá tu Nombre y Apellido.'); document.getElementById('inName').focus(); return; }
+  if (!course){ alert('Por favor, ingresá tu Curso.'); document.getElementById('inCourse').focus(); return; }
+  if (!state.workload){ alert('Seleccioná un escenario de carga de trabajo.'); return; }
+  state.name = name;
+  state.course = course;
+  showScreen(1);
+});
+
+/* =========================================================
+   PANTALLA 1: INTERFAZ TÉRMICA
+========================================================= */
+document.querySelectorAll('#timOpts .opt').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('#timOpts .opt').forEach(o => o.classList.remove('sel'));
+    opt.classList.add('sel');
+    state.tim = opt.dataset.tim;
+
+    const info = TIMS[state.tim];
+    const fb = document.getElementById('timFeedback');
+    fb.className = 'feedback show ' + info.cls;
+    fb.innerHTML = info.fb;
+
+    document.getElementById('btnToCooler').disabled = false;
+  });
+});
+
+document.getElementById('btnToCooler').addEventListener('click', () => {
+  if (!state.tim) return;
+  showScreen(2);
+});
+
+/* =========================================================
+   PANTALLA 2: DISIPADOR + PWM
+========================================================= */
+document.querySelectorAll('#coolerOpts .opt').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('#coolerOpts .opt').forEach(o => o.classList.remove('sel'));
+    opt.classList.add('sel');
+    state.cooler = opt.dataset.cooler;
+  });
+});
+
+const pwmSlider = document.getElementById('pwmSlider');
+const pwmDisplay = document.getElementById('pwmDisplay');
+const pwmFeedback = document.getElementById('pwmFeedback');
+
+function pwmMessage(p){
+  if (p <= 25) return '<b>Zona Silenciosa (0–50 °C):</b> RPM mínimas. Ideal para navegación web o reposo. Si se mantiene en gaming, el calor se acumulará.';
+  if (p <= 60) return '<b>Zona de Rampa (50–75 °C):</b> aumento lineal equilibrado entre RPM y temperatura. Buen balance acústico/térmico.';
+  if (p <= 85) return '<b>Zona Crítica (75 °C+):</b> enfriamiento fuerte. Recomendada para gaming o cargas sostenidas.';
+  return '<b>Duty Cycle 100%:</b> máxima disipación. Ruido alto, pero previene el Thermal Throttling en picos de carga.';
+}
+
+function setPwm(p){
+  state.pwm = p;
+  pwmSlider.value = p;
+  pwmDisplay.textContent = p + '%';
+  document.querySelectorAll('#pwmPresets .preset').forEach(b => {
+    b.classList.toggle('sel', parseInt(b.dataset.pwm, 10) === p);
+  });
+  pwmFeedback.innerHTML = pwmMessage(p);
+}
+
+pwmSlider.addEventListener('input', e => setPwm(parseInt(e.target.value, 10)));
+document.querySelectorAll('#pwmPresets .preset').forEach(b => {
+  b.addEventListener('click', () => setPwm(parseInt(b.dataset.pwm, 10)));
+});
+setPwm(50);
+
+document.getElementById('btnToTest').addEventListener('click', () => {
+  if (!state.cooler){ alert('Seleccioná un sistema de transporte (disipador).'); return; }
+  showScreen(3);
+});
+
+/* =========================================================
+   PANTALLA 3: PRUEBA DE ESTRÉS
+========================================================= */
+const tempBig = document.getElementById('tempBig');
+const clockBig = document.getElementById('clockBig');
+const tempBar = document.getElementById('tempBar');
+const clockBar = document.getElementById('clockBar');
+const statusBox = document.getElementById('statusBox');
+const resultsCard = document.getElementById('resultsCard');
+const btnDownload = document.getElementById('btnDownload');
+const btnRun = document.getElementById('btnRun');
+
+function tempColor(t){
+  if (t < 50) return '#38bdf8';
+  if (t < 65) return '#22c55e';
+  if (t < 80) return '#f59e0b';
+  return '#ef4444';
+}
+function tempBarGradient(t){
+  if (t < 50) return 'linear-gradient(90deg,#0ea5e9,#38bdf8)';
+  if (t < 65) return 'linear-gradient(90deg,#22c55e,#4ade80)';
+  if (t < 80) return 'linear-gradient(90deg,#f59e0b,#fbbf24)';
+  return 'linear-gradient(90deg,#ef4444,#f87171)';
+}
+
+function paintRealtime(temp, clock){
+  tempBig.textContent = temp.toFixed(1) + '°C';
+  tempBig.style.color = tempColor(temp);
+  clockBig.textContent = Math.round(clock) + '%';
+  clockBig.style.color = clock > 85 ? '#4ade80' : (clock > 50 ? '#fbbf24' : '#f87171');
+  tempBar.style.width = Math.min(100, temp) + '%';
+  tempBar.style.background = tempBarGradient(temp);
+  clockBar.style.width = clock + '%';
+  clockBar.style.background = clock > 85
+    ? 'linear-gradient(90deg,#22c55e,#4ade80)'
+    : (clock > 50
+        ? 'linear-gradient(90deg,#f59e0b,#fbbf24)'
+        : 'linear-gradient(90deg,#ef4444,#f87171)');
+}
+
+/* Cálculo del equilibrio térmico */
+function computeResults(){
+  const tdp       = WORKLOADS[state.workload].tdp;
+  const timR      = TIMS[state.tim].r;
+  const baseCoolR = COOLERS[state.cooler].r;
+  // El PWM multiplica la resistencia del disipador (menos RPM → más resistencia)
+  const pwmMult   = 100 / (0.5 * state.pwm + 50);
+  const coolR     = baseCoolR * pwmMult;
+  const totalR    = timR + coolR;
+
+  const peakTemp  = AMBIENT + tdp * totalR;
+
+  let finalTemp, clock, throttling;
+  if (peakTemp <= CRITICAL){
+    finalTemp = peakTemp;
+    clock     = 100;
+    throttling = false;
+  } else {
+    throttling = true;
+    // El procesador baja frecuencia para bajar el TDP efectivo
+    clock = Math.max(20, Math.round(100 - (peakTemp - CRITICAL) * 3));
+    const effectiveTdp = tdp * (clock / 100);
+    finalTemp = AMBIENT + effectiveTdp * totalR;
+    if (finalTemp > 88) finalTemp = 84 + Math.random() * 3;
+  }
+
+  return { tdp, timR, coolR, totalR, peakTemp, finalTemp, clock, throttling };
+}
+
+/* Animación de la simulación */
+function runSimulation(){
+  btnRun.disabled = true;
+  btnRun.style.opacity = '.6';
+  btnRun.textContent = '⏳ Ejecutando prueba...';
+  resultsCard.style.display = 'none';
+  btnDownload.style.display = 'none';
+
+  const res = computeResults();
+  state.results = res;
+
+  const startTemp = AMBIENT;
+  const duration  = 3200;          // ms
+  const throttleP = 0.70;          // % de la animación donde arranca el throttling
+  const startTime = performance.now();
+
+  function frame(now){
+    const t = Math.min(1, (now - startTime) / duration);
+    let temp, clock;
+
+    if (t < throttleP){
+      const p = t / throttleP;
+      temp = startTemp + (res.peakTemp - startTemp) * p;
+      clock = 100;
+      statusBox.className = 'status-box';
+      statusBox.innerHTML = '🔥 Aplicando carga... <span class="dots"><span></span><span></span><span></span></span>';
+    } else if (res.throttling){
+      const p = (t - throttleP) / (1 - throttleP);
+      temp = res.peakTemp + (res.finalTemp - res.peakTemp) * p;
+      clock = 100 + (res.clock - 100) * p;
+      statusBox.className = 'status-box bad';
+      statusBox.innerHTML = '⚠️ ¡THERMAL THROTTLING ACTIVADO! Reducción de frecuencia';
+    } else {
+      temp = res.peakTemp;
+      clock = 100;
+      statusBox.className = 'status-box ok';
+      statusBox.innerHTML = '✅ Rendimiento sostenido al 100% · Temperatura estable';
+    }
+
+    paintRealtime(temp, clock);
+
+    if (t < 1){
+      requestAnimationFrame(frame);
+    } else {
+      finishSimulation(res);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+function finishSimulation(res){
+  paintRealtime(res.throttling ? res.peakTemp : res.peakTemp, res.clock);
+  // Mostrar pico real
+  tempBig.textContent = res.peakTemp.toFixed(1) + '°C';
+  tempBig.style.color = tempColor(res.peakTemp);
+
+  // Estado final
+  if (res.throttling){
+    statusBox.className = 'status-box bad';
+    statusBox.innerHTML = '⚠️ THERMAL THROTTLING ACTIVADO · Reducción drástica de frecuencia';
+  } else {
+    statusBox.className = 'status-box ok';
+    statusBox.innerHTML = '✅ Rendimiento sostenido al 100% · Sin throttling';
+  }
+
+  // Resultados
+  document.getElementById('resTemp').textContent = res.peakTemp.toFixed(1) + '°C';
+  document.getElementById('resTemp').className = 'v ' + (res.peakTemp > CRITICAL ? 'bad' : (res.peakTemp > 65 ? 'mid' : 'ok'));
+
+  document.getElementById('resClock').textContent = res.clock + '%';
+  document.getElementById('resClock').className = 'v ' + (res.clock >= 90 ? 'ok' : (res.clock >= 60 ? 'mid' : 'bad'));
+
+  document.getElementById('resThrottle').textContent = res.throttling ? 'ACTIVADO' : 'EVITADO';
+  document.getElementById('resThrottle').className = 'v ' + (res.throttling ? 'bad' : 'ok');
+
+  document.getElementById('resR').textContent = res.totalR.toFixed(2) + ' °C/W';
+
+  // Resumen
+  const wl = WORKLOADS[state.workload];
+  const summary = document.getElementById('summaryList');
+  summary.innerHTML = `
+    <li><span>Escenario</span><span>${wl.icon} ${wl.label}</span></li>
+    <li><span>TDP de trabajo</span><span>${wl.tdp} W</span></li>
+    <li><span>Compuesto térmico</span><span>${TIMS[state.tim].label}</span></li>
+    <li><span>Disipador</span><span>${COOLERS[state.cooler].label}</span></li>
+    <li><span>Duty Cycle PWM</span><span>${state.pwm}%</span></li>
+    <li><span>Temp. pico alcanzada</span><span>${res.peakTemp.toFixed(1)} °C</span></li>
+    <li><span>Temp. de equilibrio</span><span>${res.finalTemp.toFixed(1)} °C</span></li>
+    <li><span>Resistencia térmica total</span><span>${res.totalR.toFixed(2)} °C/W</span></li>
+    <li><span>Estado del throttling</span><span>${res.throttling ? '⚠️ Activado' : '✅ Evitado'}</span></li>
+    <li><span>Rendimiento final</span><span>${res.clock}% del clock base</span></li>
+  `;
+
+  resultsCard.style.display = 'block';
+  btnDownload.style.display = 'flex';
+  btnRun.disabled = false;
+  btnRun.style.opacity = '1';
+  btnRun.textContent = '🔄 Repetir Prueba de Estrés';
+
+  setTimeout(() => resultsCard.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+}
+
+btnRun.addEventListener('click', runSimulation);
+
+/* =========================================================
+   GENERACIÓN DEL INFORME .DOC
+========================================================= */
+function buildReportHTML(){
+  const res = state.results;
+  const wl = WORKLOADS[state.workload];
+  const dateStr = new Date().toLocaleDateString('es-AR', { day:'2-digit', month:'long', year:'numeric' });
+  const horaStr = new Date().toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
+
+  const estadoThrottle = res.throttling
+    ? '<span style="color:#c0392b;font-weight:bold;">ACTIVADO</span>'
+    : '<span style="color:#1e8449;font-weight:bold;">EVITADO</span>';
+
+  return `
+  <html xmlns:o="urn:schemas-microsoft-com:office:office"
+        xmlns:w="urn:schemas-microsoft-com:office:word"
+        xmlns="http://www.w3.org/TR/REC-html40">
+  <head>
+    <meta charset="utf-8">
+    <title>Informe de Práctica - Gestión Térmica</title>
+    <style>
+      body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color:#1a1a1a; line-height:1.5; }
+      h1 { color:#c0392b; font-size:18pt; border-bottom:2px solid #c0392b; padding-bottom:6px; }
+      h2 { color:#1a5276; font-size:14pt; margin-top:18px; border-bottom:1px solid #d0d0d0; padding-bottom:3px; }
+      table { border-collapse:collapse; width:100%; margin:10px 0; }
+      th, td { border:1px solid #999; padding:7px 9px; text-align:left; font-size:10.5pt; }
+      th { background:#eaeaea; font-weight:bold; }
+      .box { background:#f4f6f7; border-left:4px solid #1a5276; padding:10px 14px; margin:10px 0; }
+      .q { background:#fdf6e3; border-left:4px solid #d4a017; padding:10px 14px; margin:12px 0; }
+      .q p { margin:6px 0; }
+      ul { margin:6px 0 6px 20px; }
+      .small { font-size:9pt; color:#666; text-align:center; margin-top:24px; }
+    </style>
+  </head>
+  <body>
+
+    <h1>Práctica de Hardware I: Gestión Térmica</h1>
+    <p><b>Simulador Educativo de TDP, Throttling y Refrigeración</b><br>
+    Basado en el Material N°19 — <i>Sistemas de Refrigeración y Gestión Térmica</i></p>
+
+    <h2>1. Datos del Alumno</h2>
+    <table>
+      <tr><th style="width:35%;">Nombre y Apellido</th><td>${state.name}</td></tr>
+      <tr><th>Curso</th><td>${state.course}</td></tr>
+      <tr><th>Materia</th><td>Hardware I</td></tr>
+      <tr><th>Fecha</th><td>${dateStr} — ${horaStr} hs</td></tr>
+    </table>
+
+    <h2>2. Resumen de Decisiones Tomadas</h2>
+    <table>
+      <tr><th style="width:35%;">Parámetro</th><th>Selección</th></tr>
+      <tr><td>Escenario de carga</td><td>${wl.icon} ${wl.label} (TDP ≈ ${wl.tdp} W)</td></tr>
+      <tr><td>Compuesto térmico (Interfaz)</td><td>${TIMS[state.tim].label}</td></tr>
+      <tr><td>Sistema de transporte</td><td>${COOLERS[state.cooler].label}</td></tr>
+      <tr><td>Duty Cycle PWM configurado</td><td>${state.pwm}%</td></tr>
+    </table>
+
+    <div class="box">
+      <b>Fundamento técnico de la elección:</b><br>
+      ${TIMS[state.tim].fb.replace(/<[^>]+>/g, '')}
+    </div>
+
+    <h2>3. Resultados Obtenidos en la Prueba de Estrés</h2>
+    <table>
+      <tr><th style="width:50%;">Métrica</th><th>Valor</th></tr>
+      <tr><td>Temperatura ambiente</td><td>${AMBIENT} °C</td></tr>
+      <tr><td>Temperatura pico alcanzada</td><td><b>${res.peakTemp.toFixed(1)} °C</b></td></tr>
+      <tr><td>Temperatura de equilibrio</td><td>${res.finalTemp.toFixed(1)} °C</td></tr>
+      <tr><td>Umbral crítico configurado</td><td>${CRITICAL} °C</td></tr>
+      <tr><td>Resistencia térmica total del sistema</td><td>${res.totalR.toFixed(2)} °C/W</td></tr>
+      <tr><td>Estado del Thermal Throttling</td><td>${estadoThrottle}</td></tr>
+      <tr><td>Velocidad de reloj final (Clock Speed)</td><td><b>${res.clock}%</b> del valor base</td></tr>
+      <tr><td>Rendimiento final del equipo</td><td>${res.clock}%</td></tr>
+    </table>
+
+    <div class="box">
+      <b>Conclusión del simulador:</b><br>
+      ${res.throttling
+        ? 'La combinación elegida NO logró disipar el calor generado. El procesador alcanzó el umbral crítico de ' + CRITICAL + ' °C y activó el mecanismo de protección <b>Thermal Throttling</b>, reduciendo su frecuencia hasta un ' + res.clock + '% del clock base. Esto se traduce en una caída drástica del rendimiento en juegos o aplicaciones pesadas.'
+        : 'La combinación elegida logró mantener la temperatura por debajo del umbral crítico de ' + CRITICAL + ' °C. El procesador sostuvo su frecuencia al 100%, garantizando el máximo rendimiento sin activar el mecanismo de protección <b>Thermal Throttling</b>.'}
+    </div>
+
+    <h2>4. Preguntas de Fundamentación Técnica</h2>
+    <p><i>Respondé en tu carpeta las siguientes preguntas utilizando los conceptos vistos en clase y el Material N°19:</i></p>
+
+    <div class="q">
+      <p><b>Pregunta 1.</b> La <b>Pasta Metálica</b> posee la mayor conductividad térmica de todos los compuestos vistos. Sin embargo, en la simulación se advierte sobre su uso. ¿Por qué representa un riesgo para el procesador y en qué situaciones conviene (o no) utilizarla?</p>
+      <p style="color:#888;">Respuesta:</p>
+      <p>_______________________________________________________________________________________</p>
+      <p>_______________________________________________________________________________________</p>
+      <p>_______________________________________________________________________________________</p>
+    </div>
+
+    <div class="q">
+      <p><b>Pregunta 2.</b> Explicá con tus palabras qué es el <b>Thermal Throttling</b>. ¿Por qué el procesador reduce su frecuencia en lugar de apagarse directamente cuando alcanza temperaturas elevadas?</p>
+      <p style="color:#888;">Respuesta:</p>
+      <p>_______________________________________________________________________________________</p>
+      <p>_______________________________________________________________________________________</p>
+      <p>_______________________________________________________________________________________</p>
+    </div>
+
+    <div class="q">
+      <p><b>Pregunta 3.</b> Un compañero te pide armar una PC para <b>gaming de alto rendimiento</b> con un procesador de 95 W de TDP. ¿Qué combinación de <b>compuesto térmico</b> y <b>disipador</b> le recomendarías? Justificá tu elección mencionando los conceptos de <i>resistencia térmica</i>, <i>heat pipes</i> y <i>curva PWM</i>.</p>
+      <p style="color:#888;">Respuesta:</p>
+      <p>_______________________________________________________________________________________</p>
+      <p>_______________________________________________________________________________________</p>
+      <p>_______________________________________________________________________________________</p>
+      <p>_______________________________________________________________________________________</p>
+    </div>
+
+    <h2>5. Observaciones del Docente</h2>
+    <table>
+      <tr><th style="width:30%;">Criterio</th><th>Valoración</th></tr>
+      <tr><td>Uso correcto del simulador</td><td>&nbsp;</td></tr>
+      <tr><td>Fundamentación técnica</td><td>&nbsp;</td></tr>
+      <tr><td>Presentación del informe</td><td>&nbsp;</td></tr>
+      <tr><td>Nota final</td><td>&nbsp;</td></tr>
+    </table>
+
+    <p class="small">
+      Informe generado automáticamente por el Simulador de Gestión Térmica · Hardware I · Material N°19<br>
+      <i>"El verdadero rendimiento de un equipo no lo dicta la potencia de su procesador, sino la capacidad de su ecosistema térmico para sostener esa potencia en el tiempo."</i>
+    </p>
+
+  </body>
+  </html>
+  `;
+}
+
+document.getElementById('btnDownload').addEventListener('click', () => {
+  if (!state.results) return;
+  const html = buildReportHTML();
+  const header = '\ufeff';
+  const blob = new Blob([header, html], { type: 'application/msword' });
+
+  const safeName = state.name.replace(/[^a-z0-9áéíóúñ ]/gi, '').replace(/\s+/g, '_');
+  const fileName = `Informe_GestionTermica_${safeName || 'Alumno'}.doc`;
+
+  // Compatibilidad Android Chrome / Firefox
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+
+  // Feedback visual
+  const btn = document.getElementById('btnDownload');
+  const original = btn.innerHTML;
+  btn.innerHTML = '✅ ¡Informe descargado!';
+  btn.style.background = 'linear-gradient(135deg,#16a34a,#15803d)';
+  setTimeout(() => {
+    btn.innerHTML = original;
+    btn.style.background = '';
+  }, 2500);
+});
+
+/* Ajustar vista al rotar pantalla */
+window.addEventListener('orientationchange', () => {
+  window.scrollTo({ top: window.scrollY, behavior: 'instant' });
+});
+</script>
+</body>
+</html>
